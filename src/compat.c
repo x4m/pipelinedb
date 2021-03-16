@@ -112,8 +112,10 @@ CompatBuildTupleHashTable(TupleDesc desc,
 					int numCols, AttrNumber *keyColIdx,
 #if (PG_VERSION_NUM < 110000)
 					FmgrInfo *eqfuncs,
-#else
+#elif (PG_VERSION_NUM < 120000)
 					Oid *eqfuncs,
+#else
+					Oid *eqfuncs,Oid *collations,
 #endif
 					FmgrInfo *hashfunctions,
 					long nbuckets, Size additionalsize,
@@ -123,11 +125,18 @@ CompatBuildTupleHashTable(TupleDesc desc,
 #if (PG_VERSION_NUM < 110000)
 	return BuildTupleHashTable(numCols, keyColIdx, eqfuncs, hashfunctions, nbuckets,
 			additionalsize, tablecxt, tempcxt, use_variable_hash_iv);
-#else
+#elif (PG_VERSION_NUM < 120000)
 	{
 		PlanState *parent = makeNode(PlanState);
 		parent->state = CreateExecutorState();
 		return BuildTupleHashTable(parent, desc, numCols, keyColIdx, eqfuncs, hashfunctions, nbuckets,
+				additionalsize, tablecxt, tempcxt, use_variable_hash_iv);
+	}
+#else
+	{
+		PlanState *parent = makeNode(PlanState);
+		parent->state = CreateExecutorState();
+		return BuildTupleHashTable(parent, desc, numCols, keyColIdx, eqfuncs, hashfunctions, collations, nbuckets,
 				additionalsize, tablecxt, tempcxt, use_variable_hash_iv);
 	}
 #endif
@@ -171,7 +180,11 @@ ComaptExecAssignResultTypeFromTL(PlanState *ps)
 {
 #if (PG_VERSION_NUM < 110000)
 	ExecAssignResultTypeFromTL(ps);
-#else
+#elif (PG_VERSION_NUM < 120000)
 	ExecInitResultTupleSlotTL(ps->state, ps);
+#else
+	//TODO CHECK
+	//ExecInitResultTupleSlotTL(ps,ps->resultops);
+	ExecInitResultTupleSlotTL(ps,&TTSOpsHeapTuple);
 #endif
 }

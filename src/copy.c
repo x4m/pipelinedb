@@ -52,7 +52,9 @@
 #include "utils/rel.h"
 #include "utils/rls.h"
 #include "utils/snapmgr.h"
-
+#if (PG_VERSION_NUM >= 120000)
+	#include "optimizer/optimizer.h"
+#endif
 
 #define ISOCTAL(c) (((c) >= '0') && ((c) <= '7'))
 #define OCTVALUE(c) ((c) - '0')
@@ -638,7 +640,11 @@ DoStreamCopy(ParseState *pstate, const CopyStmt *stmt,
 		rel = heap_openrv(stmt->relation,
 						  (is_from ? RowExclusiveLock : AccessShareLock));
 
-		rte = addRangeTableEntryForRelation(pstate, rel, NULL, false, false);
+		#if (PG_VERSION_NUM < 120000)
+			rte = addRangeTableEntryForRelation(pstate, rel, NULL, false, false);
+		#else
+			rte = addRangeTableEntryForRelation(pstate, rel, RowExclusiveLock , NULL, false, false);
+		#endif
 		rte->requiredPerms = (is_from ? ACL_INSERT : ACL_SELECT);
 
 		tupDesc = RelationGetDescr(rel);
@@ -1373,8 +1379,11 @@ CopyStreamFrom(CopyState cstate)
 #if (PG_VERSION_NUM < 110000)
 	myslot = ExecInitExtraTupleSlot(estate);
 	ExecSetSlotDescriptor(myslot, tupDesc);
-#else
+#elif (PG_VERSION_NUM < 120000)
 	myslot = ExecInitExtraTupleSlot(estate, tupDesc);
+#else
+//TODO CHECK
+	myslot = ExecInitExtraTupleSlot(estate, tupDesc, &TTSOpsHeapTuple);
 #endif
 
 	values = (Datum *) palloc(tupDesc->natts * sizeof(Datum));
@@ -1391,7 +1400,10 @@ CopyStreamFrom(CopyState cstate)
 	for (;;)
 	{
 		TupleTableSlot *slot;
-		Oid loaded_oid = InvalidOid;
+
+		#if (PG_VERSION_NUM < 120000)
+			Oid loaded_oid = InvalidOid;
+		#endif
 
 		CHECK_FOR_INTERRUPTS();
 
@@ -1404,8 +1416,11 @@ CopyStreamFrom(CopyState cstate)
 
 		/* Switch into its memory context */
 		MemoryContextSwitchTo(GetPerTupleMemoryContext(estate));
-
-		if (!NextCopyFrom(cstate, econtext, values, nulls, &loaded_oid))
+		#if (PG_VERSION_NUM < 120000)
+			if (!NextCopyFrom(cstate, econtext, values, nulls, &loaded_oid))
+		#else
+			if (!NextCopyFrom(cstate, econtext, values, nulls))
+		#endif
 			break;
 
 		/* And now we can form the input tuple. */
@@ -1415,7 +1430,12 @@ CopyStreamFrom(CopyState cstate)
 
 		/* Place tuple in tuple slot --- but slot shouldn't free it */
 		slot = myslot;
-		ExecStoreTuple(tuple, slot, InvalidBuffer, false);
+		#if (PG_VERSION_NUM < 120000)
+			ExecStoreTuple(tuple, slot, InvalidBuffer, false);
+		#else
+			ExecStoreHeapTuple(tuple, slot, false);
+		#endif
+
 
 		ExecStreamInsert(NULL, resultRelInfo, slot, NULL);
 		processed++;

@@ -32,7 +32,9 @@
 #include "utils/datum.h"
 #include "utils/sortsupport.h"
 #include "utils/typcache.h"
-
+#if (PG_VERSION_NUM >= 120000)
+	#include "optimizer/optimizer.h"
+#endif
 typedef struct CQHSPerQueryState
 {
 	/* slot for inserting elements into the HLL */
@@ -573,7 +575,11 @@ cq_hypothetical_set_per_query_startup(FunctionCallInfo fcinfo)
 	if (!directargs)
 		elog(ERROR, "expected constant expressions at the beginning of the argument list");
 
-	directdesc = ExecTypeFromTL(directargs, false);
+	#if (PG_VERSION_NUM < 120000)
+		directdesc = ExecTypeFromTL(directargs, false);
+	#else
+		directdesc = ExecTypeFromTL(directargs);
+	#endif
 	values = palloc0(directdesc->natts * sizeof(Datum));
 	nulls = palloc0(directdesc->natts * sizeof(bool));
 
@@ -586,7 +592,11 @@ cq_hypothetical_set_per_query_startup(FunctionCallInfo fcinfo)
 		i++;
 	}
 
-	qstate->directslot = MakeSingleTupleTableSlot(directdesc);
+	#if (PG_VERSION_NUM < 120000)
+		qstate->directslot = MakeSingleTupleTableSlot(directdesc);
+	#else
+		qstate->directslot = MakeSingleTupleTableSlot(directdesc, &TTSOpsHeapTuple);
+	#endif
 	qstate->directslot->tts_values = values;
 	qstate->directslot->tts_isnull = nulls;
 
@@ -621,13 +631,20 @@ cq_hypothetical_set_per_query_startup(FunctionCallInfo fcinfo)
 		sortargs = lappend(sortargs, te);
 	}
 
-	sortdesc = ExecTypeFromTL(sortargs, false);
+	#if (PG_VERSION_NUM < 120000)
+		sortdesc = ExecTypeFromTL(sortargs, false);
+	#else
+		sortdesc = ExecTypeFromTL(sortargs);
+	#endif
 
 	if (!equalTupleDescs(directdesc, sortdesc))
 		elog(ERROR, "sort expressions must have the same type as input expressions");
 
-	qstate->curslot = MakeSingleTupleTableSlot(sortdesc);
-
+	#if (PG_VERSION_NUM < 120000)
+		qstate->curslot = MakeSingleTupleTableSlot(sortdesc);
+	#else
+		qstate->curslot = MakeSingleTupleTableSlot(sortdesc, &TTSOpsHeapTuple);
+	#endif
 	/*
 	 * Build our comparator for determining how an input tuple compares to our
 	 * direct argument tuple
