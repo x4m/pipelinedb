@@ -356,7 +356,7 @@ GetContQueryDef(Oid defrelid)
 	Relation rel;
 	Query *result;
 
-	rel = heap_open(defrelid, NoLock);
+	rel = heap_open(defrelid, AccessShareLock);
 	result = copyObject(get_view_query(rel));
 	heap_close(rel, NoLock);
 
@@ -880,7 +880,7 @@ create_lookup_index(RangeVar *cv, Oid matrelid, RangeVar *matrel, SelectStmt *se
 	}
 	else
 	{
-		Relation rel = heap_open(matrelid, NoLock);
+		Relation rel = heap_open(matrelid, AccessShareLock);
 		expr = make_hashed_index_expr(cv, select, RelationGetDescr(rel));
 		heap_close(rel, NoLock);
 	}
@@ -1211,7 +1211,7 @@ get_relid_from_qualified_relname(char *qualified)
 	List *name = textToQualifiedNameList((text *) CStringGetTextDatum(qualified));
 	RangeVar *rv = makeRangeVarFromNameList(name);
 
-	return RangeVarGetRelid(rv, NoLock, false);
+	return RangeVarGetRelid(rv, AccessShareLock, false);
 }
 
 /*
@@ -1262,7 +1262,7 @@ create_cv_row_from_dump(Relation pq, RangeVar *name, Query *query, List *options
 		elog(ERROR, "option \"%s\" expected but not found", OPTION_OSREL);
 	osrelid = get_relname_relid(relname, nspid);
 
-	defrelid = RangeVarGetRelid(name, NoLock, false);
+	defrelid = RangeVarGetRelid(name, AccessShareLock, false);
 
 	/*
 	 * But these options won't always be present
@@ -1416,7 +1416,7 @@ record_ct_dependencies(Oid relid, Oid osrelid, Oid fnoid, Oid defrelid, SelectSt
 						errmsg("\"%s\" is not a stream", strVal(v)),
 						errhint("Arguments to pipeline_stream_insert must be streams.")));
 
-			srel = heap_openrv(rv, NoLock);
+			srel = heap_openrv(rv, AccessShareLock);
 			desc = CreateTupleDescCopy(RelationGetDescr(srel));
 
 			/* HACK(usmanm): Ignore arrival_timestamp. Should be fixed by #1616. */
@@ -1597,20 +1597,20 @@ SyncContView(RangeVar *name)
 		rv = makeRangeVar(name->schemaname, value, -1);
 
 		if (!pg_strcasecmp(key, OPTION_LOOKUPINDEX))
-			lookupindexid = RangeVarGetRelid(rv, NoLock, false);
+			lookupindexid = RangeVarGetRelid(rv, AccessShareLock, false);
 		else if (!pg_strcasecmp(key, OPTION_PKINDEX))
-			pkindexid = RangeVarGetRelid(rv, NoLock, false);
+			pkindexid = RangeVarGetRelid(rv, AccessShareLock, false);
 		else if (!pg_strcasecmp(key, OPTION_SEQREL))
-			seqrelid = RangeVarGetRelid(rv, NoLock, false);
+			seqrelid = RangeVarGetRelid(rv, AccessShareLock, false);
 		else if (!pg_strcasecmp(key, OPTION_MATREL))
-			matrelid = RangeVarGetRelid(rv, NoLock, false);
+			matrelid = RangeVarGetRelid(rv, AccessShareLock, false);
 		else if (!pg_strcasecmp(key, OPTION_OSREL))
-			osrelid = RangeVarGetRelid(rv, NoLock, false);
+			osrelid = RangeVarGetRelid(rv, AccessShareLock, false);
 		else if (!pg_strcasecmp(key, OPTION_OVERLAY))
-			overlayid = RangeVarGetRelid(rv, NoLock, false);
+			overlayid = RangeVarGetRelid(rv, AccessShareLock, false);
 	}
 
-	pq = OpenPipelineQuery(NoLock);
+	pq = OpenPipelineQuery(AccessShareLock);
 	ReleaseSysCache(tup);
 	UpdateContViewIndexIds(pq, cq->id, pkindexid, lookupindexid, seqrelid);
 
@@ -1901,7 +1901,7 @@ ExecCreateContViewStmt(RangeVar *view, Node *sel, List *options, const char *que
 	collect_rels_and_streams((Node *) workerselect->fromClause, &cxt);
 
 	Assert(list_length(cxt.streams) == 1);
-	streamrelid = RangeVarGetRelid((RangeVar *) linitial(cxt.streams), NoLock, false);
+	streamrelid = RangeVarGetRelid((RangeVar *) linitial(cxt.streams), AccessShareLock, false);
 
 	/*
 	 * Now save the underlying query in the `pipelinedb.cont_query` catalog relation. We don't have relid for
@@ -1948,7 +1948,7 @@ ExecCreateContViewStmt(RangeVar *view, Node *sel, List *options, const char *que
 	/*
 	 * Create the output stream
 	 */
-	overlayrel = heap_open(overlayid, NoLock);
+	overlayrel = heap_open(overlayid, AccessShareLock);
 
 	old = makeNode(ColumnDef);
 	old->colname = OSREL_OLD_ROW;
@@ -1966,7 +1966,7 @@ ExecCreateContViewStmt(RangeVar *view, Node *sel, List *options, const char *que
 	if (!has_sw)
 	{
 		/* Only non-SW output streams have delta tuples */
-		matrel = heap_open(matrelid, NoLock);
+		matrel = heap_open(matrelid, AccessShareLock);
 
 		delta = makeNode(ColumnDef);
 		delta->colname = OSREL_DELTA_ROW;
@@ -2638,7 +2638,7 @@ SyncPipelineQuery(void)
 	if (pg_class_aclcheck(PipelineQueryRelationOid, GetUserId(), ACL_DELETE) != ACLCHECK_OK)
 		return;
 
-	pipeline_query = heap_open(PipelineQueryRelationOid, NoLock);
+	pipeline_query = heap_open(PipelineQueryRelationOid, AccessShareLock);
 	scan_desc = heap_beginscan_catalog(pipeline_query, 0, NULL);
 
 	while ((tup = heap_getnext(scan_desc, ForwardScanDirection)) != NULL)
@@ -2718,7 +2718,7 @@ void RangeVarGetTTLInfo(RangeVar *cvname, char **ttl_col, int *ttl)
 	Assert(row->ttl > 0);
 	*ttl = row->ttl;
 
-	rel = heap_open(row->matrelid, NoLock);
+	rel = heap_open(row->matrelid, AccessShareLock);
 	desc = RelationGetDescr(rel);
 
 	for (i = 0; i < desc->natts; i++)
@@ -2820,7 +2820,7 @@ ExecCreateContTransformStmt(RangeVar *transform, Node *stmt, List *options, cons
 	if (is_dumped_ct_defrel(options))
 	{
 		create_dumped_ct(pipeline_query, transform, querystring, (SelectStmt *) stmt, options);
-		ClosePipelineQuery(pipeline_query, NoLock);
+		ClosePipelineQuery(pipeline_query, AccessShareLock);
 		return;
 	}
 
@@ -2856,7 +2856,7 @@ ExecCreateContTransformStmt(RangeVar *transform, Node *stmt, List *options, cons
 	collect_rels_and_streams((Node *) ((SelectStmt *) stmt)->fromClause, &cxt);
 
 	Assert(list_length(cxt.streams) == 1);
-	streamrelid = RangeVarGetRelid((RangeVar *) linitial(cxt.streams), NoLock, false);
+	streamrelid = RangeVarGetRelid((RangeVar *) linitial(cxt.streams), AccessShareLock, false);
 
 	DefineContTransform(relid, defrelid, streamrelid, relid, osrelid, &options, &tgfnid);
 	CommandCounterIncrement();
@@ -2878,7 +2878,7 @@ ExecCreateContTransformStmt(RangeVar *transform, Node *stmt, List *options, cons
 	dumped = list_make1(makeDefElem(OPTION_ACTION, (Node *) makeString(ACTION_DUMPED), -1));
 	StorePipelineQueryReloptions(relid, dumped);
 
-	ClosePipelineQuery(pipeline_query, NoLock);
+	ClosePipelineQuery(pipeline_query, AccessShareLock);
 }
 
 /*
@@ -3106,7 +3106,7 @@ SyncStreamReaderDefRels(Oid streamrelid)
 			Anum_pipeline_query_streamrelid,
 				BTEqualStrategyNumber, F_OIDEQ, ObjectIdGetDatum(streamrelid));
 
-	pipeline_query = heap_open(PipelineQueryRelationOid, NoLock);
+	pipeline_query = heap_open(PipelineQueryRelationOid, AccessShareLock);
 	scan_desc = heap_beginscan_catalog(pipeline_query, 1, key);
 
 	/*
@@ -3132,7 +3132,7 @@ SyncAllContQueryDefRels(void)
 	Relation pipeline_query;
 	HeapScanDesc scan_desc;
 
-	pipeline_query = heap_open(PipelineQueryRelationOid, NoLock);
+	pipeline_query = heap_open(PipelineQueryRelationOid, AccessShareLock);
 	scan_desc = heap_beginscan_catalog(pipeline_query, 0, NULL);
 
 	/*

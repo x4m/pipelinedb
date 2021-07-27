@@ -137,7 +137,7 @@ init_query_state(ContExecutor *exec, ContQueryState *base)
 
 		state->groupatts = agg->grpColIdx;
 
-		matrel = try_relation_open(base->query->matrelid, NoLock);
+		matrel = try_relation_open(base->query->matrelid, AccessShareLock);
 
 		if (matrel == NULL)
 		{
