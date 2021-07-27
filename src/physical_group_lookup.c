@@ -262,11 +262,11 @@ lnext:
 
 	#if (PG_VERSION_NUM < 120000)
 		tup = inner->tts_tuple;
+		Assert(inner->tts_tuple);
 	#else
 		//bool should_free = false;
 		tup = ExecCopySlotHeapTuple(inner);
 	#endif
-	Assert(inner->tts_tuple);
 
 	scan = (ScanState *) outer->js.ps.righttree;
 	rel = scan->ss_currentRelation;

@@ -300,7 +300,7 @@ init_catalog_xact(void)
 		if (IsBinaryUpgrade && (!OidIsValid(nsp) || !OidIsValid(relid)))
 			continue;
 
-		rel = heap_open(relid, NoLock);
+		rel = heap_open(relid, AccessShareLock);
 
 		/* Cache OIDs while we're here so we don't have to do extraneous lookups after this point */
 		catalogdesc[i].relid = relid;
@@ -311,7 +311,7 @@ init_catalog_xact(void)
 		catalogdesc[i].desc = CreateTupleDescCopyConstr(RelationGetDescr(rel));
 		MemoryContextSwitchTo(old);
 
-		heap_close(rel, NoLock);
+		heap_close(rel, AccessShareLock);
 	}
 }
 

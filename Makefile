@@ -2,14 +2,14 @@ MODULE_big = pipelinedb
 SOURCES = $(shell find src -type f -name '*.c' -not -path 'src/test/*')
 OBJS = $(patsubst %.c,%.o,$(SOURCES))
 
-PG_CONFIG := pg_config
+PG_CONFIG := /Users/x4mmm/project/bin/pg_config
 
 EXTENSION = pipelinedb
 REGRESS = $(EXTENSION)
 
 DATA = $(shell find . -type f -name 'pipelinedb--*.sql')
 EXTRA_CLEAN = src/test/regress/expected/$(REGRESS).out src/test/regress/sql/$(REGRESS).sql
-SHLIB_LINK += /usr/lib/libzmq.a -lstdc++
+SHLIB_LINK += /usr/local/Cellar/zeromq/4.3.4/lib/libzmq.a -lstdc++ /usr/local/Cellar/libsodium/1.0.18_1/lib/libsodium.a
 
 ifdef USE_PGXS
 PG_CPPFLAGS += -I./include -I$(shell $(PG_CONFIG) --includedir)
@@ -20,6 +20,7 @@ endif
 ifdef PIPELINE_REVISION_STR
 PG_CPPFLAGS += -DPIPELINE_REVISION_STR=\"$(PIPELINE_REVISION_STR)\"
 endif
+PG_CPPFLAGS += -I/usr/local/Cellar/zeromq/4.3.4/include
 
 PGXS := $(shell $(PG_CONFIG) --pgxs)
 include $(PGXS)
