@@ -769,7 +769,7 @@ pipeline_set_ttl(PG_FUNCTION_ARGS)
 
 	if (ttl_colname)
 	{
-		matrel = heap_openrv(cv->matrel, NoLock);
+		matrel = heap_openrv(cv->matrel, AccessShareLock);
 
 		/*
 		 * Find which attribute number corresponds to the given column name

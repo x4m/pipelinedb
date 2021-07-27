@@ -1848,7 +1848,7 @@ assign_output_stream_projection(ContQueryCombinerState *state)
 	Relation rel;
 	Query *overlay;
 
-	rel = heap_open(state->base.query->relid, NoLock);
+	rel = heap_open(state->base.query->relid, AccessShareLock);
 	state->overlay_desc = CreateTupleDescCopy(RelationGetDescr(rel));
 	#if (PG_VERSION_NUM < 120000)
 		state->overlay_slot = MakeSingleTupleTableSlot(state->overlay_desc);
@@ -1868,7 +1868,7 @@ assign_output_stream_projection(ContQueryCombinerState *state)
 
 	estate = CreateExecutorState();
 	context = CreateStandaloneExprContext();
-	overlayrel = heap_openrv(state->base.query->name, NoLock);
+	overlayrel = heap_openrv(state->base.query->name, AccessShareLock);
 	overlay = get_view_query(overlayrel);
 	heap_close(overlayrel, NoLock);
 

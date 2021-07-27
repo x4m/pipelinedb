@@ -175,7 +175,7 @@ RangeVarIsStream(RangeVar *rv, bool missing_ok)
 	if (rv->catalogname && pg_strcasecmp(rv->catalogname, get_database_name(MyDatabaseId)) != 0)
 		return false;
 
-	relid = RangeVarGetRelid(rv, NoLock, missing_ok);
+	relid = RangeVarGetRelid(rv, AccessShareLock, missing_ok);
 	if (!OidIsValid(relid))
 		return false;
 
@@ -487,7 +487,7 @@ SyncPipelineStreamReaders(void)
 					ALLOCSET_DEFAULT_INITSIZE,
 					ALLOCSET_DEFAULT_MAXSIZE);
 
-	pipeline_query = heap_open(PipelineQueryRelationOid, NoLock);
+	pipeline_query = heap_open(PipelineQueryRelationOid, AccessShareLock);
 	pipeline_stream = heap_open(PipelineStreamRelationOid, RowExclusiveLock);
 
 	/*
@@ -626,7 +626,7 @@ SyncPipelineStream(void)
 	if (pg_class_aclcheck(GetPipelineStreamOid(), GetUserId(), ACL_DELETE) != ACLCHECK_OK)
 		return;
 
-	pipeline_stream = OpenPipelineStream(NoLock);
+	pipeline_stream = OpenPipelineStream(AccessShareLock);
 	scan_desc = heap_beginscan_catalog(pipeline_stream, 0, NULL);
 
 	while ((tup = heap_getnext(scan_desc, ForwardScanDirection)) != NULL)

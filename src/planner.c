@@ -751,7 +751,7 @@ check_matrels_writable(Query *q)
 		if (!MatRelWritable() && RelidIsMatRel(rte->relid, NULL))
 		{
 			RangeVar *cv;
-			Relation rel = heap_open(rte->relid, NoLock);
+			Relation rel = heap_open(rte->relid, AccessShareLock);
 			RangeVar *matrel = makeRangeVar(get_namespace_name(RelationGetNamespace(rel)), RelationGetRelationName(rel), -1);
 
 			relation_close(rel, NoLock);

@@ -228,7 +228,7 @@ has_clock_timestamp(Node *node, void *context)
 static bool
 col_has_index(RangeVar *rv, ColumnRef *col)
 {
-	Relation rel = heap_openrv(rv, NoLock);
+	Relation rel = heap_openrv(rv, AccessShareLock);
 	Bitmapset *indexed = RelationGetIndexAttrBitmap(rel, PIPELINE_COMPAT_INDEX_ATTR_BITMAP_ALL);
 	TupleDesc desc = RelationGetDescr(rel);
 	char *table;
@@ -839,7 +839,7 @@ rewrite_from_clause(Node *from)
 		 rv = makeRangeVarFromNameList(textToQualifiedNameList((text *) CStringGetTextDatum(cv_name)));
 
 		 /* Just fail if the target CV doesn't exist */
-		 cvrel = heap_openrv(rv, NoLock);
+		 cvrel = heap_openrv(rv, AccessShareLock);
 		 heap_close(cvrel, NoLock);
 
 		 rv->relname = CVNameToOSRelName(rv->relname);

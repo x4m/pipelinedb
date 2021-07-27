@@ -404,7 +404,7 @@ PipelineProcessUtility(PlannedStmt *pstmt, const char *sql, ProcessUtilityContex
 			}
 			else if (rename->relation)
 			{
-				Oid relid = RangeVarGetRelid(rename->relation, NoLock, true);
+				Oid relid = RangeVarGetRelid(rename->relation, AccessShareLock, true);
 				/*
 				 * We disallow the renaming of a continuous view/transform's internal relations
 				 */
@@ -444,7 +444,7 @@ PipelineProcessUtility(PlannedStmt *pstmt, const char *sql, ProcessUtilityContex
 				 * We're changing a streams's schema, so we must sync all metadata that references this stream
 				 * to reflect the new schema.
 				 */
-				sync_renamed_stream = RangeVarGetRelid(stmt->relation, NoLock, false);
+				sync_renamed_stream = RangeVarGetRelid(stmt->relation, AccessShareLock, false);
 			}
 			else if (stmt->objectType == OBJECT_VIEW && RangeVarIsContQuery(stmt->relation))
 			{
@@ -454,7 +454,7 @@ PipelineProcessUtility(PlannedStmt *pstmt, const char *sql, ProcessUtilityContex
 				 * to keep things organized and intuitive. It would be confusing to have a CQ in one schema
 				 * and all of its dependent relations in the old one.
 				 */
-				sync_renamed_cq = RangeVarGetRelid(stmt->relation, NoLock, false);
+				sync_renamed_cq = RangeVarGetRelid(stmt->relation, AccessShareLock, false);
 				SyncContQuerySchema(sync_renamed_cq, stmt->newschema);
 			}
 		}
@@ -514,7 +514,7 @@ epilogue:
 		if (isstream)
 		{
 			CreateForeignTableStmt *stmt = (CreateForeignTableStmt *) parsetree;
-			Oid relid = RangeVarGetRelid(stmt->base.relation, NoLock, false);
+			Oid relid = RangeVarGetRelid(stmt->base.relation, AccessShareLock, false);
 			CreatePipelineStreamEntry(stmt, relid);
 		}
 
