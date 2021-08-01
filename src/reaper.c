@@ -316,7 +316,9 @@ ContinuousQueryReaperMain(void)
 						 */
 						rel = OpenPipelineQuery(RowExclusiveLock);
 
+						old = MemoryContextSwitchTo(cxt);
 						deleted = DeleteTTLExpiredRows(cv, matrel);
+						MemoryContextSwitchTo(old);
 						set_last_expiration(relid, deleted);
 
 						ClosePipelineQuery(rel, NoLock);
