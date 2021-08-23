@@ -1,6 +1,7 @@
 MODULE_big = pipelinedb
 SOURCES = $(shell find src -type f -name '*.c' -not -path 'src/test/*')
 OBJS = $(patsubst %.c,%.o,$(SOURCES))
+BASE_DIR=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 
 PG_CONFIG := pg_config
 
@@ -67,3 +68,18 @@ run:
 test:
 	make check
 	make -C src/test/py test
+
+build-debs:
+	@rm -rf install/deb/*.deb && \
+	mkdir -p $(BASE_DIR)/install/deb/pipelinedb/include && \
+	mkdir -p $(BASE_DIR)/install/deb/pipelinedb/lib && \
+	mkdir -p $(BASE_DIR)/install/deb/pipelinedb/share && \
+	cp -r $(BASE_DIR)/include/* $(BASE_DIR)/install/deb/pipelinedb/include  && \
+	cp -r $(BASE_DIR)/pipelinedb.so $(BASE_DIR)/install/deb/pipelinedb/lib  && \
+	cp -r $(BASE_DIR)/pipelinedb.control $(BASE_DIR)/install/deb/pipelinedb/share  && \
+	cp -r $(BASE_DIR)/pipelinedb--1.0.0.sql $(BASE_DIR)/install/deb/pipelinedb/share  
+
+	@cd $(BASE_DIR)/install/deb/pipelinedb && \
+	rm -rf debian/changelog ; \
+	dch --create --distribution stable --package "pipelinedb" --newversion 1.0.0 "Release" ; \
+	dpkg-buildpackage -us -uc  
