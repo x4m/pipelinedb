@@ -69,7 +69,7 @@ test:
 	make check
 	make -C src/test/py test
 
-build-debs:
+build-deb:
 	@rm -rf install/deb/*.deb && \
 	mkdir -p $(BASE_DIR)/install/deb/pipelinedb/include && \
 	mkdir -p $(BASE_DIR)/install/deb/pipelinedb/lib && \

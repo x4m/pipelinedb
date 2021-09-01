@@ -25,4 +25,4 @@ Next, edit <data directory>/postgresql.conf and set:
 
 Once your database is running, create the pipelinedb extension:
 
-  psql -c 'CREATE EXTENSION pipelinedb'
+  psql -c 'CREATE EXTENSION pipelinedb'"
