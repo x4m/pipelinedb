@@ -1,7 +1,7 @@
 Source:         pipelinedb
 Section:        custom
 Priority:       optional
-Maintainer:     PostgresPro
+Maintainer:     AWIDE
 Standards-Version: 1.0
 
 Package:        pipelinedb
