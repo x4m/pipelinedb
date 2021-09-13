@@ -8,7 +8,7 @@ Summary:       PipelineDB
 
 
 Prefix:        /usr/pgsql-11
-Depends:       postgresql11-server
+Requires:      postgresql11-server
 AutoReqProv:   no
 
 %description
