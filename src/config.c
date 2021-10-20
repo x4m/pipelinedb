@@ -325,7 +325,7 @@ _PG_init(void)
 			gettext_noop("Sets the time of reaper between restarts in seconds. "),
 			NULL,
 			&reaper_restart_time,
-			600, 0, 1024,
+			0, 0, 1024,
 			PGC_POSTMASTER, 0,
 			NULL, NULL, NULL);
 
