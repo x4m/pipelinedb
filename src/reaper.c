@@ -317,15 +317,12 @@ ContinuousQueryReaperMain(void)
 						 * We need to acquire a pipeline_query lock first to ensure proper lock ordering
 						 * of all remaining lock acquisitions to avoid deadlocks.
 						 */
-						rel = OpenPipelineQuery(RowExclusiveLock);
-						
 						old = MemoryContextSwitchTo(cxt);
+						rel = OpenPipelineQuery(RowExclusiveLock);
 						deleted = DeleteTTLExpiredRows(cv, matrel);
 						set_last_expiration(relid, deleted);
-						MemoryContextSwitchTo(old);
-
 						ClosePipelineQuery(rel, NoLock);
-
+						MemoryContextSwitchTo(old);
 						CommitTransactionCommand();
 					}
 				}
