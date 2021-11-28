@@ -81,7 +81,7 @@ build-deb:
 
 	@cd $(BASE_DIR)/install/deb/pipelinedb && \
 	rm -rf debian/changelog ; \
-	dch --create --distribution stable --package "pipelinedb" --newversion 1.0.0-14 "Release" ; \
+	dch --create --distribution stable --package "pipelinedb" --newversion 1.0.0-15 "Release" ; \
 	dpkg-buildpackage -us -uc  
 
 build-rpm:

@@ -1,5 +1,12 @@
 #! /bin/sh
 
+chmod 0644 -R /usr/include/postgresql/11/pipelinedb
+chmod root.root -R /usr/include/postgresql/11/pipelinedb
+chmod 0644 /usr/share/postgresql/11/extension/pipelinedb*
+chmod root.root /usr/share/postgresql/11/extension/pipelinedb*
+chmod 755 /usr/lib/postgresql/11/lib/pipelinedb.so
+chmod root.root /usr/lib/postgresql/11/lib/pipelinedb.so
+
 set -e
 
 echo "

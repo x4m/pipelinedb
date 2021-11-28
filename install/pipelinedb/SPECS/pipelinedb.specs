@@ -1,7 +1,7 @@
 BuildArch:     x86_64
 Name:          pipelinedb
 Version:       1.0.0
-Release:       14
+Release:       15
 License:       ASL 2.0 
 Group:         Applications/Databases
 Summary:       PipelineDB
