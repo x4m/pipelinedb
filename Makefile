@@ -10,10 +10,11 @@ REGRESS = $(EXTENSION)
 
 DATA = $(shell find . -type f -name 'pipelinedb--*.sql')
 EXTRA_CLEAN = src/test/regress/expected/$(REGRESS).out src/test/regress/sql/$(REGRESS).sql
-SHLIB_LINK += /usr/lib/libzmq.a -lstdc++
+SHLIB_LINK += /opt/homebrew/Cellar/zeromq/4.3.4/lib/libzmq.a -lstdc++ /opt/homebrew/Cellar/libsodium/1.0.18_1/lib/libsodium.a
 
+PG_CPPFLAGS += -I./include -I$(shell $(PG_CONFIG) --includedir-server) -I/opt/homebrew/Cellar/zeromq/4.3.4/include
 ifdef USE_PGXS
-PG_CPPFLAGS += -I./include -I$(shell $(PG_CONFIG) --includedir)
+
 
 ifdef PIPELINE_VERSION_STR
 PG_CPPFLAGS += -DPIPELINE_VERSION_STR=\"$(PIPELINE_VERSION_STR)\"
@@ -41,7 +42,7 @@ REGRESS_OPTS = --schedule=./src/test/regress/parallel_schedule \
 NO_GENERATED_HEADERS = 1
 NO_PGXS = 1
 NO_TEMP_INSTALL = 1
-top_builddir = $(shell $(PG_CONFIG) --pkglibdir)/pgxs
+top_builddir = ../..
 
 include $(shell $(PG_CONFIG) --pkglibdir)/pgxs/src/Makefile.global
 include $(shell $(PG_CONFIG) --pgxs)
