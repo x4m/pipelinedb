@@ -556,8 +556,10 @@ create_matrel_partition(ContQueryCombinerState *state, TimestampTz lower_bound)
 		return part_index;
 	}
 
+	heap_close(matrel, NoLock);
 	DefineMatRelPartition(state->base.query->matrel,
 			lower_bound, state->base.query->partition_duration);
+	matrel = heap_open(state->base.query->matrelid, NoLock);
 
 	part_index = get_matrel_partition_for_key(matrel, values);
 
@@ -2638,35 +2640,35 @@ GetCombinerLookupPlan(ContQuery *view)
 		Oid *eq_funcs;
 #endif
 		FmgrInfo *hash_funcs;
-//		Relation rel;
+		Relation rel;
 
 		CompatExecTuplesHashPrepare(state->ngroupatts, state->groupops, &eq_funcs, &hash_funcs);
 		existing = CompatBuildTupleHashTable(state->desc, state->ngroupatts, state->groupatts, eq_funcs, hash_funcs, 1000,
 				sizeof(PhysicalTupleData), CurrentMemoryContext, CurrentMemoryContext, false);
 
-//		rel = heap_openrv_extended(view->matrel, AccessShareLock, true);
-//
-//		if (rel)
-//		{
-//			HeapTuple tuple;
-//			HeapScanDesc scan = heap_beginscan(rel, GetActiveSnapshot(), 0, NULL);
-//
-//			while ((tuple = heap_getnext(scan, ForwardScanDirection)) != NULL)
-//			{
-//				if (!TupIsNull(state->slot))
-//					ExecClearTuple(state->slot);
-//
-//				ExecStoreTuple(heap_copytuple(tuple), state->slot, InvalidBuffer, false);
-//				tuplestore_puttupleslot(state->batch, state->slot);
-//				break;
-//			}
-//
-//			heap_endscan(scan);
-//			heap_close(rel, AccessShareLock);
-//		}
+		rel = heap_openrv_extended(view->matrel, AccessShareLock, true);
+
+		if (rel)
+		{
+			HeapTuple tuple;
+			HeapScanDesc scan = heap_beginscan(rel, GetActiveSnapshot(), 0, NULL);
+
+			while ((tuple = heap_getnext(scan, ForwardScanDirection)) != NULL)
+			{
+				if (!TupIsNull(state->slot))
+					ExecClearTuple(state->slot);
+
+				ExecStoreTuple(heap_copytuple(tuple), state->slot, InvalidBuffer, false);
+				tuplestore_puttupleslot(state->batch, state->slot);
+				break;
+			}
+
+			heap_endscan(scan);
+			heap_close(rel, AccessShareLock);
+		}
 
 		state->existing = existing;
-//		values = get_values(state);
+		values = get_values(state);
 	}
 
 	am_cont_combiner = true;
