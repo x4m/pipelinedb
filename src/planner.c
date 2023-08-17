@@ -696,7 +696,7 @@ GetContPlan(ContQuery *view, ContQueryProcType type)
 CustomScan *
 SetCombinerPlanTuplestorestate(PlannedStmt *plan, Tuplestorestate *tupstore)
 {
-	CustomScan *scan;
+	CustomScan *scan = NULL;
 	char *ptr;
 
 	if (IsA(plan->planTree, CustomScan))
@@ -715,6 +715,21 @@ SetCombinerPlanTuplestorestate(PlannedStmt *plan, Tuplestorestate *tupstore)
 	else if (IsA(plan->planTree, Group) &&
 			IsA(plan->planTree->lefttree, CustomScan))
 		scan = (CustomScan *) plan->planTree->lefttree->lefttree;
+	else if(IsA(plan->planTree, Append))
+	{
+			Append *a = (Append *) plan->planTree;
+			ListCell *lc;
+
+			foreach(lc, a->appendplans)
+			{
+				Scan *s = (Scan *) lfirst(lc);
+				if (IsA(s, CustomScan))
+					scan = (CustomScan *)s;
+			}
+
+			if (!scan)
+				elog(ERROR, "couldn't find TuplestoreScan node in combiner's plan Append: %d", nodeTag(plan->planTree));
+	}
 	else
 		elog(ERROR, "couldn't find TuplestoreScan node in combiner's plan: %d", nodeTag(plan->planTree));
 
