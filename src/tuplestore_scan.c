@@ -178,8 +178,11 @@ create_tuplestore_scan_state(struct CustomScan *cscan)
 	scanstate->cstate.methods = &exec_methods;
 
 	/* A local-memory pointer to the tuplestore is encoded as a copyable string :/ */
-	ptr = linitial(cscan->custom_private);
-	memcpy(&scanstate->store, ptr->val.str, sizeof(Tuplestorestate *));
+	if (cscan->custom_private)
+	{
+		ptr = linitial(cscan->custom_private);
+		memcpy(&scanstate->store, ptr->val.str, sizeof(Tuplestorestate *));
+	}
 
 	return (Node *) scanstate;
 }
@@ -201,6 +204,9 @@ tuplestore_next(struct CustomScanState *node)
 {
 	CustomTuplestoreScanState *state = (CustomTuplestoreScanState *) node;
 	TupleTableSlot *slot = node->ss.ss_ScanTupleSlot;
+
+	if (!state->store)
+		return NULL;
 
 	if (!tuplestore_gettupleslot(state->store, true, false, slot))
 		return NULL;
