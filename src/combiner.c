@@ -2380,6 +2380,8 @@ read_batch(ContExecutor *exec, ContQueryCombinerState *state, Oid query_id)
 		 * this combiner must update will come through this specific combiner, so we won't miss any.
 		 */
 		heap_close(matrel, NoLock);
+		if (ActiveSnapshotSet())
+			PopActiveSnapshot();
 		ContExecutorCommit(exec);
 		ContExecutorBegin(exec);
 
