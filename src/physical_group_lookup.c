@@ -163,6 +163,25 @@ create_lookup_scan_state(struct CustomScan *cscan)
 	return (Node *) state;
 }
 
+
+/*
+ *		rt_fetch
+ *
+ * NB: this will crash and burn if handed an out-of-range RT index
+ */
+#define rt_fetch(rangetable_index, rangetable) \
+	((RangeTblEntry *) list_nth(rangetable, (rangetable_index)-1))
+
+/*
+ *		getrelid
+ *
+ *		Given the range index of a relation, return the corresponding
+ *		relation OID.  Note that InvalidOid will be returned if the
+ *		RTE is for a non-relation-type RTE.
+ */
+#define getrelid(rangeindex,rangetable) \
+	(rt_fetch(rangeindex, rangetable)->relid)
+
 /*
  * begin_lookup_scan
  */
@@ -227,7 +246,7 @@ output_physical_tuple(TupleTableSlot *slot)
 	old = MemoryContextSwitchTo(lookup_result->tablecxt);
 
 	pt = palloc0(sizeof(PhysicalTupleData));
-	pt->tuple = ExecCopySlotTuple(slot);
+	pt->tuple = ExecCopySlotHeapTuple(slot);
 	entry = LookupTupleHashEntry(lookup_result, slot, &isnew);
 	entry->additional = pt;
 
@@ -258,14 +277,14 @@ nestloop_lookup_next(struct CustomScanState *node)
 {
 	NestLoopState *outer = (NestLoopState *) outerPlanState(node);
 	TupleTableSlot *result;
-	TupleTableSlot *inner;
-	HTSU_Result res;
+	HeapTupleTableSlot *inner;
+	TM_Result res;
 	EState *estate = outer->js.ps.state;
 	Buffer buffer;
-	HeapUpdateFailureData hufd;
+	TM_FailureData hufd;
 	HeapTuple tup;
 	Relation rel;
-	TupleTableSlot *slot = NULL;
+	HeapTupleTableSlot *slot = NULL;
 	ScanState *scan;
 
 	/* Get next tuple from subplan, if any. */
@@ -277,10 +296,10 @@ lnext:
 	ExecClearTuple(node->ss.ps.ps_ResultTupleSlot);
 
 	/* this slot contains the physical matrel tuple that was joined on */
-	inner = outer->js.ps.ps_ExprContext->ecxt_innertuple;
+	inner = (HeapTupleTableSlot*) outer->js.ps.ps_ExprContext->ecxt_innertuple;
 
-	tup = inner->tts_tuple;
-	Assert(inner->tts_tuple);
+	tup = inner->tuple;
+	Assert(tup);
 
 	/*
 	 * If we're working with a partitioned matrel, the underlying scan will be an Append
@@ -309,7 +328,7 @@ lnext:
 
 	switch (res)
 	{
-		case HeapTupleSelfUpdated:
+		case TM_SelfModified:
 			/*
 			 * The target tuple was already updated or deleted by the
 			 * current command, or by a later command in the current
@@ -320,22 +339,23 @@ lnext:
 			elog(ERROR, "tuple updated again in the same transaction");
 			break;
 
-		case HeapTupleMayBeUpdated:
+		case TM_Ok:
 			/* Got the lock successfully! */
 			slot = inner;
 			break;
 
-		case HeapTupleUpdated:
+		case TM_Deleted:
 			/* Was tuple deleted? */
 			if (ItemPointerEquals(&hufd.ctid, &tup->t_self))
 				goto lnext;
 
 			/* Tuple was updated, so fetch and lock the updated version */
+		case TM_Updated:
 			tup = EvalPlanQualFetch(estate, rel, LockTupleExclusive, false, &hufd.ctid, hufd.xmax);
 			if (tup == NULL)
 				goto lnext;
 
-			slot = ExecStoreTuple(tup, node->ss.ps.ps_ResultTupleSlot, InvalidBuffer, true);
+			slot = ExecStoreHeapTuple(tup, node->ss.ps.ps_ResultTupleSlot, true);
 			break;
 
 		default:

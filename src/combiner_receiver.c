@@ -45,7 +45,7 @@ combiner_receive(CombinerReceiver *c, TupleTableSlot *slot)
 	Assert(c->cont_query->type == CONT_VIEW);
 
 	ref = palloc(sizeof(tagged_ref_t));
-	ref->ptr = ExecCopySlotTuple(slot);
+	ref->ptr = ExecCopySlotHeapTuple(slot);
 
 	/* Shard by groups or name if no grouping. */
 	if (c->hash_fcinfo)

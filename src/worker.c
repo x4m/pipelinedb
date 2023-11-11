@@ -10,6 +10,7 @@
 
 #include "access/htup_details.h"
 #include "access/xact.h"
+#include "access/relation.h"
 #include "pipeline_query.h"
 #include "executor/execdesc.h"
 #include "executor/executor.h"
@@ -165,8 +166,6 @@ init_query_state(ContExecutor *exec, ContQueryState *base)
 		heap_close(matrel, NoLock);
 	}
 
-	state->query_desc->estate->es_lastoid = InvalidOid;
-
 	(*state->dest->rStartup) (state->dest, state->query_desc->operation, state->query_desc->tupDesc);
 
 	/*
@@ -220,7 +219,7 @@ init_plan(ContQueryWorkerState *state)
 	query_desc->planstate = ExecInitNode(plan, query_desc->estate, PIPELINE_EXEC_CONTINUOUS);
 	query_desc->tupDesc = ExecGetResultType(query_desc->planstate);
 
-	state->result_slot = MakeSingleTupleTableSlot(query_desc->tupDesc);
+	state->result_slot = MakeSingleTupleTableSlot(query_desc->tupDesc, &TTSOpsHeapTuple);
 	tuplestore_clear(state->plan_output);
 }
 

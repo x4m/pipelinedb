@@ -781,7 +781,7 @@ finish:
 	tuplestore_rescan(state->batch);
 	foreach_tuple(slot, state->batch)
 	{
-		HeapTuple tup = ExecCopySlotTuple(slot);
+		HeapTuple tup = ExecCopySlotHeapTuple(slot);
 		tups = lappend(tups, tup);
 	}
 	tuplestore_clear(state->batch);
@@ -806,7 +806,7 @@ finish:
 		 * currently processing. This is just a matter of intersecting the
 		 * retrieved groups with the batch's groups.
 		 */
-		ExecStoreTuple(pt->tuple, slot, InvalidBuffer, false);
+		ExecStoreHeapTuple(pt->tuple, slot, false);
 		Assert(!TupIsNull(slot));
 
 		if (LookupTupleHashEntry(batchgroups, slot, NULL))
@@ -869,7 +869,7 @@ build_projection(List *tlist, EState *estate, ExprContext *econtext,
 	TupleDesc result_desc;
 
 	result_desc = ExecTypeFromTL(tlist, false);
-	result_slot = MakeSingleTupleTableSlot(result_desc);
+	result_slot = MakeSingleTupleTableSlot(result_desc, &TTSOpsHeapTuple);
 
 	return ExecBuildProjectionInfo(tlist, econtext, result_slot, NULL, input_desc);
 }
@@ -888,7 +888,7 @@ project_overlay(ContQueryCombinerState *state, ExprContext *econtext, HeapTuple 
 	Assert(state->proj_input_slot);
 
 	/* Should we copy the input tuple so it doesn't get modified? */
-	ExecStoreTuple(tup, state->proj_input_slot, InvalidBuffer, false);
+	ExecStoreHeapTuple(tup, state->proj_input_slot, false);
 	econtext->ecxt_scantuple = state->proj_input_slot;
 	slot = ExecProject(state->output_stream_proj);
 	econtext->ecxt_scantuple = prev;
@@ -971,7 +971,7 @@ sync_sw_matrel_groups(ContQueryCombinerState *state, Relation matrel)
 		MemoryContext old;
 		uint64 hash;
 
-		ExecStoreTuple(tup, state->slot, InvalidBuffer, false);
+		ExecStoreHeapTuple(tup, state->slot, false);
 
 		if (state->hashfunc)
 			hash = slot_hash_group_skip_attr(state->slot, state->base.query->sw_attno, state->hashfunc, &hashfcinfo);
@@ -1094,7 +1094,7 @@ add_cached_sw_tuples_to_overlay_input(ContQueryCombinerState *state)
 		OverlayTupleEntry *ot = (OverlayTupleEntry *) matrel_entry->additional;
 		PhysicalTuple matrel_tup = &ot->base;
 
-		ExecStoreTuple(matrel_tup->tuple, state->slot, InvalidBuffer, false);
+		ExecStoreHeapTuple(matrel_tup->tuple, state->slot, false);
 		d = slot_getattr(state->slot, state->sw->arrival_ts_attr, &isnull);
 		ts = DatumGetTimestampTz(d);
 		Assert(!isnull);
@@ -1169,7 +1169,7 @@ gc_cached_matrel_tuples(ContQueryCombinerState *state, List *expired)
 		bool removed;
 #endif
 
-		ExecStoreTuple(tup, state->slot, InvalidBuffer, false);
+		ExecStoreHeapTuple(tup, state->slot, false);
 #ifdef USE_ASSERT_CHECKING
 		removed = tuplehash_remove(state->sw->step_groups, state->slot);
 #else
@@ -1221,7 +1221,7 @@ gc_cached_overlay_tuples(ContQueryCombinerState *state,
 		values[OLD_TUPLE] = heap_copy_tuple_as_datum(tup, state->overlay_desc);
 
 		os_tup = heap_form_tuple(state->os_slot->tts_tupleDescriptor, values, nulls);
-		ExecStoreTuple(os_tup, state->os_slot, InvalidBuffer, false);
+		ExecStoreHeapTuple(os_tup, state->os_slot, false);
 		ExecStreamInsert(NULL, osri, state->os_slot, NULL);
 	}
 
@@ -1233,7 +1233,7 @@ gc_cached_overlay_tuples(ContQueryCombinerState *state,
 		bool removed;
 #endif
 
-		ExecStoreTuple(tup, state->overlay_slot, InvalidBuffer, false);
+		ExecStoreHeapTuple(tup, state->overlay_slot, false);
 #ifdef USE_ASSERT_CHECKING
 		removed = tuplehash_remove(state->sw->overlay_groups, state->overlay_slot);
 #else
@@ -1374,7 +1374,7 @@ tick_sw_groups(ContQueryCombinerState *state, Relation matrel, bool force)
 		if (!isnew)
 		{
 			MemSet(replaces, false, sizeof(replaces));
-			ExecStoreTuple(overlay_entry->base.tuple, state->overlay_prev_slot, InvalidBuffer, false);
+			ExecStoreHeapTuple(overlay_entry->base.tuple, state->overlay_prev_slot, false);
 
 			/*
 			 * Similarly to how we don't sync unchanged tuples to disk when combining,
@@ -1406,7 +1406,7 @@ tick_sw_groups(ContQueryCombinerState *state, Relation matrel, bool force)
 
 		/* Finally write the old and new tuple to the output stream */
 		os_tup = heap_form_tuple(state->os_slot->tts_tupleDescriptor, values, nulls);
-		ExecStoreTuple(os_tup, state->os_slot, InvalidBuffer, false);
+		ExecStoreHeapTuple(os_tup, state->os_slot, false);
 		ExecStreamInsert(NULL, osri, state->os_slot, NULL);
 
 		if (old_tup)
@@ -1602,7 +1602,7 @@ project_sw_overlay_into_ostream(ContQueryCombinerState *state, Relation matrel)
 			heap_freetuple(ot->base.tuple);
 
 		old = MemoryContextSwitchTo(state->sw->step_groups->tablecxt);
-		ot->base.tuple = ExecCopySlotTuple(state->slot);
+		ot->base.tuple = ExecCopySlotHeapTuple(state->slot);
 		MemoryContextSwitchTo(old);
 	}
 
@@ -1745,7 +1745,7 @@ sync_combine(ContQueryCombinerState *state)
 		entry = LookupTupleHashEntry(state->deltas, state->slot, &new);
 
 		pt = palloc0(sizeof(PhysicalTupleData));
-		pt->tuple = ExecCopySlotTuple(state->slot);
+		pt->tuple = ExecCopySlotHeapTuple(state->slot);
 		entry->additional = pt;
 
 		tuplestore_puttupleslot(state->batch, state->slot);
@@ -1826,7 +1826,7 @@ sync_combine(ContQueryCombinerState *state)
 
 		if (update && SHOULD_UPDATE(state))
 		{
-			ExecStoreTuple(update->tuple, state->prev_slot, InvalidBuffer, false);
+			ExecStoreHeapTuple(update->tuple, state->prev_slot, false);
 			replaces = compare_slots(state->prev_slot, state->slot,
 					state->pk, replace_all);
 
@@ -1841,7 +1841,7 @@ sync_combine(ContQueryCombinerState *state)
 			 */
 			tup = heap_modify_tuple(update->tuple, slot->tts_tupleDescriptor,
 					slot->tts_values, slot->tts_isnull, replace_all);
-			ExecStoreTuple(tup, slot, InvalidBuffer, false);
+			ExecStoreHeapTuple(tup, slot, false);
 
 			/*
 			 * If this is a partitioned matrel, get the partition that this write belongs to
@@ -1864,7 +1864,7 @@ sync_combine(ContQueryCombinerState *state)
 				slot->tts_values[state->pk - 1] = nextval_internal(state->base.query->seqrelid, true);
 			slot->tts_isnull[state->pk - 1] = false;
 			tup = heap_form_tuple(slot->tts_tupleDescriptor, slot->tts_values, slot->tts_isnull);
-			ExecStoreTuple(tup, slot, InvalidBuffer, false);
+			ExecStoreHeapTuple(tup, slot, false);
 
 			/*
 			 * If this is a partitioned matrel, get the partition that this write belongs to
@@ -1902,7 +1902,7 @@ sync_combine(ContQueryCombinerState *state)
 				os_nulls[DELTA_TUPLE] = false;
 				os_nulls[state->output_stream_arrival_ts - 1] = true;
 				os_tup = heap_form_tuple(state->os_slot->tts_tupleDescriptor, os_values, os_nulls);
-				ExecStoreTuple(os_tup, state->os_slot, InvalidBuffer, false);
+				ExecStoreHeapTuple(os_tup, state->os_slot, false);
 				ExecStreamInsert(NULL, osri, state->os_slot, NULL);
 			}
 			else
@@ -2031,8 +2031,8 @@ assign_output_stream_projection(ContQueryCombinerState *state)
 
 	rel = heap_open(state->base.query->relid, NoLock);
 	state->overlay_desc = CreateTupleDescCopy(RelationGetDescr(rel));
-	state->overlay_slot = MakeSingleTupleTableSlot(state->overlay_desc);
-	state->overlay_prev_slot = MakeSingleTupleTableSlot(state->overlay_desc);
+	state->overlay_slot = MakeSingleTupleTableSlot(state->overlay_desc, &TTSOpsHeapTuple);
+	state->overlay_prev_slot = MakeSingleTupleTableSlot(state->overlay_desc, &TTSOpsHeapTuple);
 	heap_close(rel, NoLock);
 
 	/*
@@ -2049,7 +2049,7 @@ assign_output_stream_projection(ContQueryCombinerState *state)
 	heap_close(overlayrel, NoLock);
 
 	state->output_stream_proj = build_projection(overlay->targetList, estate, context, NULL);
-	state->proj_input_slot = MakeSingleTupleTableSlot(state->desc);
+	state->proj_input_slot = MakeSingleTupleTableSlot(state->desc, &TTSOpsHeapTuple);
 }
 
 /*
@@ -2170,9 +2170,9 @@ init_query_state(ContExecutor *cont_exec, ContQueryState *base)
 	/* this also sets the state's desc field */
 	prepare_combine_plan(state, pstmt);
 
-	state->slot = MakeSingleTupleTableSlot(state->desc);
-	state->delta_slot = MakeSingleTupleTableSlot(state->desc);
-	state->prev_slot = MakeSingleTupleTableSlot(state->desc);
+	state->slot = MakeSingleTupleTableSlot(state->desc, &TTSOpsHeapTuple);
+	state->delta_slot = MakeSingleTupleTableSlot(state->desc, &TTSOpsHeapTuple);
+	state->prev_slot = MakeSingleTupleTableSlot(state->desc, &TTSOpsHeapTuple);
 	state->groups_plan = NULL;
 
 	/* this will grow dynamically when needed, but this is a good starting size */
@@ -2189,7 +2189,7 @@ init_query_state(ContExecutor *cont_exec, ContQueryState *base)
 	}
 
 	osrel = try_relation_open(base->query->osrelid, AccessShareLock);
-	state->os_slot = MakeSingleTupleTableSlot(CreateTupleDescCopy(RelationGetDescr(osrel)));
+	state->os_slot = MakeSingleTupleTableSlot(CreateTupleDescCopy(RelationGetDescr(osrel)), &TTSOpsHeapTuple);
 	heap_close(osrel, AccessShareLock);
 
 	state->output_stream_arrival_ts = find_attr(state->os_slot->tts_tupleDescriptor, ARRIVAL_TIMESTAMP);
@@ -2310,7 +2310,7 @@ read_batch(ContExecutor *exec, ContQueryCombinerState *state, Oid query_id)
 		if (!TupIsNull(state->slot))
 			ExecClearTuple(state->slot);
 
-		ExecStoreTuple(heap_copytuple(itup->tup), state->slot, InvalidBuffer, false);
+		ExecStoreHeapTuple(heap_copytuple(itup->tup), state->slot, false);
 
 		/*
 		 * If we have a partitioned matrel, extract the lower bound of the partition this tuple belongs to.
@@ -2660,7 +2660,7 @@ GetCombinerLookupPlan(ContQuery *view)
 				if (!TupIsNull(state->slot))
 					ExecClearTuple(state->slot);
 
-				ExecStoreTuple(heap_copytuple(tuple), state->slot, InvalidBuffer, false);
+				ExecStoreHeapTuple(heap_copytuple(tuple), state->slot, false);
 				tuplestore_puttupleslot(state->batch, state->slot);
 				break;
 			}
@@ -2754,7 +2754,7 @@ combine_table(PG_FUNCTION_ARGS)
 
 	while ((tup = heap_getnext(scan, ForwardScanDirection)) != NULL)
 	{
-		ExecStoreTuple(heap_copytuple(tup), state->slot, InvalidBuffer, false);
+		ExecStoreHeapTuple(heap_copytuple(tup), state->slot, false);
 		tuplestore_puttupleslot(state->batch, state->slot);
 
 		if (state->hashfunc)

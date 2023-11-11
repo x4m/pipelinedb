@@ -702,7 +702,7 @@ pipeline_set_ttl(PG_FUNCTION_ARGS)
 	oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
 
 	/* build tupdesc for result tuples */
-	tupdesc = CreateTemplateTupleDesc(2, false);
+	tupdesc = CreateTemplateTupleDesc(2);
 	TupleDescInitEntry(tupdesc, (AttrNumber) 1, "ttl", INT4OID, -1, 0);
 	TupleDescInitEntry(tupdesc, (AttrNumber) 2, "ttl_attno", INT2OID, -1, 0);
 

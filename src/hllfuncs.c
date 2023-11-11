@@ -586,7 +586,7 @@ cq_hypothetical_set_per_query_startup(FunctionCallInfo fcinfo)
 		i++;
 	}
 
-	qstate->directslot = MakeSingleTupleTableSlot(directdesc);
+	qstate->directslot = MakeSingleTupleTableSlot(directdesc, &TTSOpsHeapTuple);
 	qstate->directslot->tts_values = values;
 	qstate->directslot->tts_isnull = nulls;
 
@@ -626,7 +626,7 @@ cq_hypothetical_set_per_query_startup(FunctionCallInfo fcinfo)
 	if (!equalTupleDescs(directdesc, sortdesc))
 		elog(ERROR, "sort expressions must have the same type as input expressions");
 
-	qstate->curslot = MakeSingleTupleTableSlot(sortdesc);
+	qstate->curslot = MakeSingleTupleTableSlot(sortdesc, &TTSOpsHeapTuple);
 
 	/*
 	 * Build our comparator for determining how an input tuple compares to our

@@ -305,7 +305,7 @@ init_proj_info(StreamProjectionInfo *pi, ipc_tuple *itup)
 
 	pi->indesc = itup->desc;
 	pi->attrmap = map_field_positions(pi->indesc, pi->outdesc);
-	pi->slot = MakeSingleTupleTableSlot(pi->indesc);
+	pi->slot = MakeSingleTupleTableSlot(pi->indesc, &TTSOpsHeapTuple);
 
 	/*
 	 * Load RECORDOID tuple descriptors in the cache.
@@ -359,7 +359,7 @@ exec_stream_project(StreamScanState *node, ipc_tuple *itup)
 	/* assume every element in the output tuple is null until we actually see values */
 	MemSet(nulls, true, outdesc->natts);
 
-	ExecStoreTuple(itup->tup, pi->slot, InvalidBuffer, false);
+	ExecStoreHeapTuple(itup->tup, pi->slot, false);
 
 	/*
 	 * For each field in the event, place it in the corresponding field in the
@@ -465,7 +465,7 @@ IterateStreamScan(ForeignScanState *node)
 		init_proj_info(state->pi, itup);
 
 	tup = exec_stream_project(state, itup);
-	ExecStoreTuple(tup, slot, InvalidBuffer, false);
+	ExecStoreHeapTuple(tup, slot, false);
 
 	return slot;
 }
@@ -652,9 +652,9 @@ insert_into_stream(PG_FUNCTION_ARGS)
 
 		if (sis->queries)
 		{
-			TupleTableSlot *slot = MakeSingleTupleTableSlot(RelationGetDescr(rel));
+			TupleTableSlot *slot = MakeSingleTupleTableSlot(RelationGetDescr(rel), &TTSOpsHeapTuple);
 
-			ExecStoreTuple(tup, slot, InvalidBuffer, false);
+			ExecStoreHeapTuple(tup, slot, false);
 			ExecStreamInsert(NULL, &rinfo, slot, NULL);
 			ExecClearTuple(slot);
 

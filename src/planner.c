@@ -613,7 +613,6 @@ CreateEState(QueryDesc *query_desc)
 		RegisterSnapshot(query_desc->crosscheck_snapshot);
 	estate->es_instrument = query_desc->instrument_options;
 	estate->es_range_table = query_desc->plannedstmt->rtable;
-	estate->es_lastoid = InvalidOid;
 	estate->es_processed = 0;
 
 	CompatPrepareEState(query_desc->plannedstmt, estate);

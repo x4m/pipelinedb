@@ -1415,7 +1415,7 @@ CopyStreamFrom(CopyState cstate)
 
 		/* Place tuple in tuple slot --- but slot shouldn't free it */
 		slot = myslot;
-		ExecStoreTuple(tuple, slot, InvalidBuffer, false);
+		ExecStoreHeapTuple(tuple, slot, false);
 
 		ExecStreamInsert(NULL, resultRelInfo, slot, NULL);
 		processed++;

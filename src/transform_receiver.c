@@ -59,7 +59,7 @@ transform_receive(TransformReceiver *t, TupleTableSlot *slot)
 		Assert(t->trig_fcinfo);
 
 		cxt->tg_relation = t->tg_rel;
-		cxt->tg_trigtuple = ExecCopySlotTuple(slot);
+		cxt->tg_trigtuple = ExecCopySlotHeapTuple(slot);
 
 		/*
 		 * If it's a trigger function that inserts into another stream, we need to make
@@ -91,7 +91,7 @@ transform_receive(TransformReceiver *t, TupleTableSlot *slot)
 			t->tups = repalloc(t->tups, sizeof(HeapTuple) * t->nmaxtups);
 		}
 
-		t->tups[t->ntups++] = ExecCopySlotTuple(slot);
+		t->tups[t->ntups++] = ExecCopySlotHeapTuple(slot);
 	}
 
 	MemoryContextSwitchTo(old);
@@ -106,8 +106,9 @@ align_tuple(TransformReceiver *t, HeapTuple tup, TupleTableSlot *slot, TupleDesc
 	int i;
 	int j;
 	TupleDesc event = slot->tts_tupleDescriptor;
-	Datum values[osrel->natts];
-	bool nulls[osrel->natts];
+	Datum *values = palloc(osrel->natts * sizeof(Datum));
+	bool *nulls = palloc(osrel->natts * sizeof(bool));
+	HeapTuple result;
 
 	/*
 	 * We need to write out rows using the correct ordering of attributes, which is just
@@ -153,7 +154,7 @@ align_tuple(TransformReceiver *t, HeapTuple tup, TupleTableSlot *slot, TupleDesc
 		return tup;
 
 	MemSet(nulls, false, sizeof(nulls));
-	ExecStoreTuple(tup, slot, InvalidBuffer, false);
+	ExecStoreHeapTuple(tup, slot, false);
 
 	for (i = 0; i < osrel->natts; i++)
 	{
@@ -161,7 +162,10 @@ align_tuple(TransformReceiver *t, HeapTuple tup, TupleTableSlot *slot, TupleDesc
 	}
 
 
-	return heap_form_tuple(osrel, values, nulls);
+	result = heap_form_tuple(osrel, values, nulls);
+	pfree(values);
+	pfree(nulls);
+	return result;
 }
 
 /*
@@ -181,13 +185,13 @@ insert_into_rel(TransformReceiver *t, Relation rel, TupleTableSlot *event_slot)
 	if (sis->queries)
 	{
 		TupleDesc osreldesc = RelationGetDescr(rel);
-		TupleTableSlot *slot = MakeSingleTupleTableSlot(osreldesc);
+		TupleTableSlot *slot = MakeSingleTupleTableSlot(osreldesc, &TTSOpsHeapTuple);
 		int j;
 
 		for (j = 0; j < t->ntups; j++)
 		{
 			HeapTuple tup = align_tuple(t, t->tups[j], event_slot, osreldesc);
-			ExecStoreTuple(tup, slot, InvalidBuffer, false);
+			ExecStoreHeapTuple(tup, slot, false);
 			ExecStreamInsert(NULL, rinfo, slot, NULL);
 			ExecClearTuple(slot);
 		}
@@ -309,7 +313,7 @@ CreateTransformReceiver(ContExecutor *exec, ContQuery *query, Tuplestorestate *b
 
 	if (OidIsValid(query->tgfn) && query->tgfn != GetInsertIntoStreamOid())
 	{
-		FunctionCallInfo fcinfo = palloc0(sizeof(FunctionCallInfoData));
+		FunctionCallInfo fcinfo = palloc0(SizeForFunctionCallInfo(query->tgnargs));
 		FmgrInfo *finfo = palloc0(sizeof(FmgrInfo));
 		TriggerData *cxt = palloc0(sizeof(TriggerData));
 		Trigger *trig = palloc0(sizeof(Trigger));
@@ -329,8 +333,8 @@ CreateTransformReceiver(ContExecutor *exec, ContQuery *query, Tuplestorestate *b
 
 		cxt->type = T_TriggerData;
 		cxt->tg_event = TRIGGER_EVENT_ROW;
-		cxt->tg_newtuplebuf = InvalidBuffer;
-		cxt->tg_trigtuplebuf = InvalidBuffer;
+		//cxt->tg_newtuplebuf = InvalidBuffer;
+		//cxt->tg_trigtuplebuf = InvalidBuffer;
 		cxt->tg_trigger = trig;
 
 		fcinfo->flinfo = finfo;

@@ -44,7 +44,7 @@ topk_print(PG_FUNCTION_ARGS)
 	fss = FSSFromBytes(PG_GETARG_VARLENA_P(0));
 
 	initStringInfo(&buf);
-	appendStringInfo(&buf, "{ k = %d, m = %d, h = %d, count = %ld, length = %d, size = %ldkB }", fss->k, fss->m, fss->h, fss->count, FSSMonitoredLength(fss), FSSSize(fss) / 1024);
+	appendStringInfo(&buf, "{ k = %d, m = %d, h = %d, count = %llu, length = %d, size = %ldkB }", fss->k, fss->m, fss->h, fss->count, FSSMonitoredLength(fss), FSSSize(fss) / 1024);
 
 	PG_RETURN_TEXT_P(CStringGetTextDatum(buf.data));
 }
@@ -446,7 +446,7 @@ topk(PG_FUNCTION_ARGS)
 		PG_RETURN_NULL();
 
 	fss = FSSFromBytes(PG_GETARG_VARLENA_P(0));
-	desc= CreateTemplateTupleDesc(2, false);
+	desc= CreateTemplateTupleDesc(2);
 	TupleDescInitEntry(desc, (AttrNumber) 1, "value", fss->typ.typoid, -1, 0);
 	TupleDescInitEntry(desc, (AttrNumber) 2, "frequency", INT8OID, -1, 0);
 
@@ -524,7 +524,8 @@ topk_freqs(PG_FUNCTION_ARGS)
 
 	fss = FSSFromBytes(PG_GETARG_VARLENA_P(0));
 
-	datums = FSSTopKCounts(fss, fss->k, &found);
+	/* TODO: static assert that Datum == int64 */
+	datums = (Datum*)FSSTopKCounts(fss, fss->k, &found);
 	arr = construct_array(datums, found, INT8OID, 8, true, 'd');
 
 	PG_RETURN_ARRAYTYPE_P(arr);
